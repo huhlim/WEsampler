@@ -4,16 +4,16 @@ import os
 import sys
 import copy
 import pickle
-
-from libmpi import *
-
-from libcustom import *
+import numpy as np
 
 import mdtraj
 
 from simtk.unit import *
 from simtk.openmm import *
 from simtk.openmm.app import *
+
+from libmpi import *
+from libcustom import *
 
 class WE_Walker(object):
     def __init__(self, positions):
@@ -34,6 +34,12 @@ class WE_Walker(object):
         if self.state is not None:
             self._positions = self.state.getPositions(asNumpy=True)
         return self._positions
+    @classmethod
+    def initialize_with_runner(cls, runner, positions, **kwarg):
+        walker = cls(positions)
+        runner.walker_to_simulation(walker, **kwarg)
+        runner.simulation_to_walker(walker)
+        return walker
 
 class WE_Runner(object):
     def __init__(self, topology, system, integrator, *arg, **kwarg):
@@ -41,7 +47,7 @@ class WE_Runner(object):
         self.system = system
         self.integrator = integrator
         #
-        if MPI_SIZE > 2:
+        if MPI_RANK > 0:
             random_number_seed = self.integrator.getRandomNumberSeed() + MPI_RANK
             self.integrator.setRandomNumberSeed(random_number_seed)
             #
@@ -52,11 +58,13 @@ class WE_Runner(object):
             self.simulation = Simulation(self.topology, self.system, self.integrator)
     def __del__(self):
         self.simulation = None
-    def walker_to_simulation(self, walker):
+    def walker_to_simulation(self, walker, **kwarg):
         # copy walker -> simulation
         if walker.state is not None:
             self.simulation.context.setState(walker.state)
         else:
+            if 'box' in kwarg:
+                self.simulation.context.setPeriodicBoxVectors(*(np.eye(3)*kwarg['box']))
             self.simulation.context.setPositions(walker.positions)
             self.simulation.context.setVelocitiesToTemperature(self.simulation.integrator.getTemperature())
     def simulation_to_walker(self, walker):
@@ -106,11 +114,11 @@ class WE_Sampler(object):
     def define_mdtraj_topology(self, topology):
         self.mdtraj_topology = topology
     def loadCheckpoint(self, fp):
-        self.walker_s = pickle.load(fp)
+        self.currentStep, self.walker_s = pickle.load(fp)
         self._n_walker = len(self.walker_s)
 
     def createCheckpoint(self, fout):
-        pickle.dump(self.walker_s, fout)
+        pickle.dump((self.currentStep, self.walker_s), fout)
 
     def report(self):
         for reporter in self.reporters:
