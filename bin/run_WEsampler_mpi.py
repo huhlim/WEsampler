@@ -89,7 +89,7 @@ def run(arg):
                 pdb_s.append(pdb)
                 box_s.append(np.loadtxt(arg.boxsize[i]) / 10.0)
                 #
-                if len(rsr_fn_s) == 0:
+                if len(arg.rsr_fn_s) == 0:
                     continue
                 rsr_info = read_custom_restraint(arg.rsr_fn_s[i])
                 if ref is None: ref = pdb

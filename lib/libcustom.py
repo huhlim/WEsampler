@@ -77,7 +77,7 @@ def construct_custom_restraint(ref, custom_s):
             p = [custom.prm[0]*mass[i_atm]*kilocalories_per_mole/angstroms**2]
             p.extend(list(crd[i_atm].value_in_unit(nanometers)))
             p.append(custom.prm[1]*angstroms)
-            pos.addParticle(i_atm, p)
+            pos_flat.addParticle(i_atm, p)
     #
     if bond.getNumBonds() > 0:
         rsr.append((bond, 'bond'))
@@ -101,6 +101,7 @@ def read_custom_restraint(custom_file):
                 continue
             elif line.startswith("REFERENCE"):
                 ref_fn = line.strip().split()[1]
+                continue
             x = line.strip().split()
             r_type = x[0]
             n_atom = int(x[1])
