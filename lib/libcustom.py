@@ -95,9 +95,12 @@ def read_custom_restraint(custom_file):
         return custom_restraints
 
     with open('%s'%custom_file) as fp:
+        ref_fn = None
         for line in fp:
             if line.startswith("#"):
                 continue
+            elif line.startswith("REFERENCE"):
+                ref_fn = line.strip().split()[1]
             x = line.strip().split()
             r_type = x[0]
             n_atom = int(x[1])
@@ -106,5 +109,5 @@ def read_custom_restraint(custom_file):
             prm = [float(xi) for xi in x[3+n_atom:]]
             custom = Custom(r_type, n_atom, n_param, i_atm, prm)
             custom_restraints.append(custom)
-    return custom_restraints
+    return ref_fn, custom_restraints
 

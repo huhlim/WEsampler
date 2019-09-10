@@ -14,4 +14,4 @@ if 'CUDA_VISIBLE_DEVICES' in os.environ:
 else:
     GPU_s = ['0']
 n_GPU = len(GPU_s)
-MPI_GPU_BINDING = [None] + [GPU_s[i%n_GPU] for i in xrange(MPI_SIZE-1)]
+MPI_GPU_BINDING = [None] + ['%d'%(i%n_GPU) for i in xrange(MPI_SIZE-1)]

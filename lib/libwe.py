@@ -30,6 +30,12 @@ class WE_Walker(object):
         X.unitcell_vectors = unitcell_vectors
         return X
     @property
+    def weight_str(self):
+        if self.weight > 0.0001:
+            return '%6.4f'%self.weight
+        else:
+            return '%6.1e'%self.weight
+    @property
     def positions(self):
         if self.state is not None:
             self._positions = self.state.getPositions(asNumpy=True)
@@ -80,7 +86,6 @@ class WE_Runner(object):
     def propagate(self, walker, n_step):
         self.walker_to_simulation(walker)
         self.setTime()
-        #sys.stdout.write("propagating Walker %d, time=%d\n"%(walker.id, self.time.value_in_unit(picosecond)))
         self.simulation.step(n_step)
         self.simulation_to_walker(walker)
 
@@ -95,10 +100,11 @@ class WE_Sampler(object):
         self.p_min = kwarg.get("p_min", 1.0e-12) 
         self.p_max = kwarg.get("p_max", 0.25)
         #
+        self._logReporter = None
         self.reporters = []
         self.walker_s = []
     def __del__(self):
-        pass
+        self.walkerReporter.close()
     @property
     def n_walker(self):
         return self._n_walker
@@ -111,6 +117,9 @@ class WE_Sampler(object):
         for i,walker in enumerate(self.walker_s):
             walker.id = i
             walker.weight = weight_s[i]
+    def set_walker_reporter(self, fn):
+        self.walkerReporter = open(fn, 'wt')
+        self.walkerReportFormat = '%'+ str(1+int(np.log10(self.n_walker)))+'d'
     def define_mdtraj_topology(self, topology):
         self.mdtraj_topology = topology
     def loadCheckpoint(self, fp):
@@ -306,8 +315,10 @@ class REVO_Sampler(WE_Sampler):
             variation_test, v_walker_test = calc_variation(d_mtx_test, novelty)
             #
             if variation_test > variation:
-                sys.stdout.write("Walker: %d cloned -> %d ; %d + %d merged -> %d\n"%\
-                        (v_max_index, v_replace_index, v_merge_index, v_replace_index, v_merge_index))
+                self.walkerReporter.write("RESAMPLE %s cloned -> %s ; %s + %s merged -> %s\n"%\
+                        (self.walkerReportFormat%v_max_index, self.walkerReportFormat%v_replace_index,\
+                         self.walkerReportFormat%v_merge_index, self.walkerReportFormat%v_replace_index,\
+                         self.walkerReportFormat%v_merge_index))
                 walker_id = walker_id_test
                 weight_s = weight_s_test
                 n_walker_copy = n_walker_copy_test
@@ -323,7 +334,8 @@ class REVO_Sampler(WE_Sampler):
             w.weight = weight_s[i]
             walker_s_updated.append(w)
         #
-        sys.stdout.write("Walker: %s\n"%(' '.join(['%6.4f'%w.weight for w in walker_s_updated])))
+        self.walkerReporter.write("WEIGHTS  %s\n"%(' '.join([w.weight_str for w in walker_s_updated])))
+        self.walkerReporter.write("WALKERS  %s\n"%(' '.join([self.walkerReportFormat%w.id for w in walker_s_updated])))
 
         self.walker_s = walker_s_updated
         for i,walker in enumerate(self.walker_s):

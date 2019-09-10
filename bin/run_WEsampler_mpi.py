@@ -88,8 +88,12 @@ def run(arg):
                 pdb = PDBFile(arg.init_s[i])
                 pdb_s.append(pdb)
                 box_s.append(np.loadtxt(arg.boxsize[i]) / 10.0)
+                #
+                if len(rsr_fn_s) == 0:
+                    continue
                 rsr_info = read_custom_restraint(arg.rsr_fn_s[i])
-                rsr_s.append(construct_custom_restraint(pdb, rsr_info))
+                if ref is None: ref = pdb
+                rsr_s.append(construct_custom_restraint(ref, rsr_info))
         except IndexError:
             sys.exit("ERROR: Number of initial PDB files, boxsize files, and restraint files must be identical.\n")
         #
@@ -100,7 +104,10 @@ def run(arg):
             dcdIndex = mdtraj_topology.select("protein or %s"%(' or '.join(['resname %s'%out for out in arg.dcdout])))
         #
         periodic_box = box_s[0]
-        restraint_s = rsr_s[0]
+        if len(rsr_s) > 0:
+            restraint_s = rsr_s[0]
+        else:
+            restraint_s = []
     else:
         periodic_box = None
         restraint_s = None
@@ -139,7 +146,8 @@ def run(arg):
             for i in xrange(arg.n_walker):
                 k = i%n_init
                 walker = Restrained_WE_Walker.initialize_with_runner(runner, pdb_s[k].positions, box=box_s[k])
-                walker.define_restraint([(force_index[j], X[1], X[0]) for j,X in enumerate(rsr_s[k])])
+                if len(rsr_s) > 0:
+                    walker.define_restraint([(force_index[j], X[1], X[0]) for j,X in enumerate(rsr_s[k])])
                 walker_s.append(walker)
             #
             sampler.initialize_walker(walker_s)
@@ -147,12 +155,14 @@ def run(arg):
             with open(arg.restart, 'rb') as fp:
                 sampler.loadCheckpoint(fp)
         #
+        walker_reporter_fn = '%s.walker'%arg.output_prefix
         log_fn = '%s.log'%arg.output_prefix
         dcd_fn = '%s.dcd'%arg.output_prefix
         pdb_fn = '%s.pdb'%arg.output_prefix
         pkl_fn = '%s.pkl'%arg.output_prefix
         #
         totalSteps = arg.n_cycle[0] * arg.n_cycle[1]
+        sampler.set_walker_reporter(walker_reporter_fn)
         sampler.reporters.append(StateDataReporter(log_fn, 1, step=True, \
             time=True, kineticEnergy=True, potentialEnergy=True, temperature=True, progress=True, \
             remainingTime=True, speed=True, totalSteps=totalSteps, separator='\t'))
@@ -193,7 +203,7 @@ def main():
     #
     arg.add_argument('--init', dest='init_s', nargs='*', required=True)
     arg.add_argument('--boxsize', dest='boxsize', nargs='*', required=True)
-    arg.add_argument('--rsr', dest='rsr_fn_s', nargs='*', default=None)
+    arg.add_argument('--rsr', dest='rsr_fn_s', nargs='*', default=[])
     arg.add_argument('--restart', dest='restart', default=None)
     arg.add_argument('--dcdout', dest='dcdout', nargs='*', default=[])
     #
