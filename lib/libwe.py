@@ -76,7 +76,9 @@ class WE_Runner(object):
     def simulation_to_walker(self, walker):
         # copy simulation -> walker
         walker.state = self.simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, enforcePeriodicBox=True)
-    def getTime(self):
+    def getTime(self, walker=None):
+        if walker is not None:
+            self.walker_to_simulation(walker)
         self.time = self.simulation.context.getState().getTime()
         return self.time
     def setTime(self, time=None):
@@ -123,7 +125,9 @@ class WE_Sampler(object):
     def define_mdtraj_topology(self, topology):
         self.mdtraj_topology = topology
     def loadCheckpoint(self, fp):
-        self.currentStep, self.walker_s = pickle.load(fp)
+        #self.currentStep, self.walker_s = pickle.load(fp)
+        self.currentStep = 0
+        _, self.walker_s = pickle.load(fp)
         self._n_walker = len(self.walker_s)
 
     def createCheckpoint(self, fout):
@@ -141,7 +145,8 @@ class WE_Sampler(object):
         raise NotImplementedError
 
 def run_sampler_serial(sampler, runner, n_cycle, n_step):
-    for i in xrange(n_cycle):
+    runner.getTime(sampler.walker_s[0])
+    for i in range(n_cycle):
         sampler.currentStep += 1
         runner.getTime()
         for walker in sampler.walker_s:
@@ -154,12 +159,12 @@ def run_sampler_mpi(sampler, runner, n_cycle, n_step):
     MPI_SIGNAL_TERMINATE = 0
     MPI_SIGNAL_RUN = 1
     #
-    for i in xrange(n_cycle):
+    for i in range(n_cycle):
         if MPI_RANK == MPI_KING:
             sampler.currentStep += 1
             #
             proc_s = [True for _ in range(1, MPI_SIZE)]
-            walker_status = np.array([0 for _ in xrange(sampler.n_walker)], dtype=int)
+            walker_status = np.array([0 for _ in range(sampler.n_walker)], dtype=int)
             while np.any(walker_status != 2):
                 for i_proc in range(1, MPI_SIZE):
                     if not proc_s[i_proc-1]: continue
@@ -216,13 +221,13 @@ class REVO_Sampler(WE_Sampler):
     def get_distance_matrix(self):
         d_mtx = np.zeros((self.n_walker, self.n_walker), dtype=float)
         pdb_s = [w.to_mdtraj(self.mdtraj_topology) for w in self.walker_s]
-        for i in xrange(self.n_walker-1):
-            for j in xrange(i+1, self.n_walker):
+        for i in range(self.n_walker-1):
+            for j in range(i+1, self.n_walker):
                 d_mtx[i,j] = self.dist_func(pdb_s[i], pdb_s[j], self.mdtraj_topology)
         d_mtx += d_mtx.T
         return d_mtx
     def resample(self):
-        walker_id0 = [[i] for i in xrange(self.n_walker)]
+        walker_id0 = [[i] for i in range(self.n_walker)]
         weight_s0 = np.array([walker.weight for walker in self.walker_s])
         #
         d_mtx0 = self.get_distance_matrix()

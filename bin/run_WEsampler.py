@@ -33,14 +33,14 @@ class Restrained_WE_Walker(WE_Walker):
             use_flatbottom = ('flat' in force_info)
             #
             if force_type == 'pos':
-                for i in xrange(force_data.getNumParticles()):
+                for i in range(force_data.getNumParticles()):
                     atom, p0 = force_data.getParticleParameters(i)
                     p1 = copy.deepcopy(list(p0))
-                    for i in xrange(3):
+                    for i in range(3):
                         p1[i+1] = pdb.xyz[0, atom][i]
                     force_data.setParticleParameters(i, atom, p1)
             elif force_type == 'bond':
-                for i in xrange(force_data.getNumBonds()):
+                for i in range(force_data.getNumBonds()):
                     atom_1, atom_2, p0 = force_data.getBondParameters(i)
                     p1 = copy.deepcopy(list(p0))
                     p1[1] = mdtraj.compute_distances(pdb, [(atom_1, atom_2)])[0] * nanometers
@@ -53,12 +53,12 @@ class Restrained_WE_Walker(WE_Walker):
             simulation_force = simulation.system.getForce(force_index)
             #
             if force_type == 'pos':
-                for i in xrange(simulation_force.getNumParticles()):
+                for i in range(simulation_force.getNumParticles()):
                     atom = simulation_force.getParticleParameters(i)[0]
                     parameters = force_data.getParticleParameters(i)[1]
                     simulation_force.setParticleParameters(i, atom, parameters)
             elif force_type == 'bond':
-                for i in xrange(simulation_force.getNumBonds()):
+                for i in range(simulation_force.getNumBonds()):
                     atom_1, atom_2, _ = simulation_force.getBondParameters(i)
                     parameters = force_data.getBondParameters(i)[2]
                     simulation_force.setBondParameters(i, atom_1, atom_2, parameters)
@@ -82,7 +82,7 @@ def run(arg):
     box_s = []
     rsr_s = []
     try:
-        for i in xrange(n_init):
+        for i in range(n_init):
             pdb = PDBFile(arg.init_s[i])
             pdb_s.append(pdb)
             box_s.append(np.loadtxt(arg.boxsize[i]) / 10.0)
@@ -96,10 +96,6 @@ def run(arg):
         sys.exit("ERROR: Number of initial PDB files, boxsize files, and restraint files must be identical.\n")
     #
     mdtraj_topology = mdtraj.load(arg.init_s[0]).topology
-    if len(arg.dcdout) == 0:
-        dcdIndex = mdtraj_topology.select("protein")
-    else:
-        dcdIndex = mdtraj_topology.select("protein or %s"%(' or '.join(['resname %s'%out for out in arg.dcdout])))
     #
     psf = CharmmPsfFile(arg.psf_fn)
     psf.setBox(*box_s[0])
@@ -129,7 +125,7 @@ def run(arg):
     #
     if arg.restart is None:
         walker_s = []
-        for i in xrange(arg.n_walker):
+        for i in range(arg.n_walker):
             k = i%n_init
             walker = Restrained_WE_Walker.initialize_with_runner(runner, pdb_s[k].positions, box=box_s[k])
             if len(rsr_s) > 0:
@@ -152,13 +148,17 @@ def run(arg):
     sampler.reporters.append(StateDataReporter(log_fn, 1, step=True, \
         time=True, kineticEnergy=True, potentialEnergy=True, temperature=True, progress=True, \
         remainingTime=True, speed=True, totalSteps=totalSteps, separator='\t'))
-    sampler.reporters.append(mdtraj.reporters.DCDReporter(dcd_fn, 1, atomSubset=dcdIndex))
+    if arg.dcdout is None:
+        sampler.reporters.append(DCDReporter(dcd_fn, 1))
+    else:
+        sampler.reporters.append(mdtraj.reporters.DCDReporter(dcd_fn, 1, atomSubset=np.arange(arg.dcdout)))
     sampler.reporters.append(PDBReporter(pdb_fn, totalSteps))
     #
-    for _ in xrange(arg.n_cycle[0]):
+    for _ in range(arg.n_cycle[0]):
         run_sampler(sampler, runner, arg.n_cycle[1], arg.time[0])
-        for walker in sampler.walker_s:
-            walker.update_restraint(mdtraj_topology)
+        if arg.use_restraint_update:
+            for walker in sampler.walker_s:
+                walker.update_restraint(mdtraj_topology)
     #
     with open(pkl_fn, 'wb') as fout:
         sampler.createCheckpoint(fout)
@@ -179,7 +179,7 @@ def main():
     arg.add_argument('--boxsize', dest='boxsize', nargs='*', required=True)
     arg.add_argument('--rsr', dest='rsr_fn_s', nargs='*', default=[])
     arg.add_argument('--restart', dest='restart', default=None)
-    arg.add_argument('--dcdout', dest='dcdout', nargs='*', default=[])
+    arg.add_argument('--dcdout', dest='dcdout', default=None, type=int)
     #
     arg.add_argument('--n_walker', dest='n_walker', default=10, type=int)
     arg.add_argument('--n_cycle', dest='n_cycle', nargs=2, default=[0, 0], type=int)
@@ -187,6 +187,7 @@ def main():
     arg.add_argument('--p_max', dest='p_max', default=None, type=float)
     arg.add_argument('--p_min', dest='p_min', default=1e-12, type=float)
     arg.add_argument('--d_merge', dest='d_merge', default=2.5, type=float)
+    arg.add_argument('--update', dest='use_restraint_update', default=False, action='store_true')
     #
     arg.add_argument('--temp', dest='temp', default=360.0, type=float)
     arg.add_argument('--friction', dest='langevin_friction_coefficient', default=0.01, type=float)

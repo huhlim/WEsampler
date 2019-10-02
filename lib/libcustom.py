@@ -92,7 +92,7 @@ def construct_custom_restraint(ref, custom_s):
 def read_custom_restraint(custom_file):
     custom_restraints = []
     if custom_file is None:
-        return custom_restraints
+        return None, custom_restraints
 
     with open('%s'%custom_file) as fp:
         ref_fn = None
