@@ -1,0 +1,36 @@
+# This is an example run
+#
+../bin/run_WEsampler.py r0 \
+        --psf TR894.psf \
+        --toppar c36m/* \
+        --init TR894.equil.pdb \
+        --boxsize boxsize \
+        --rsr TR894.rsr \
+        --dcdout 821 \
+        --n_walker 5 \
+        --n_cycle 1 5 \
+        --time 20.0 0.002 \
+        --d_merge 2.5 \
+        --temp 360.0
+
+# positional argument -> output_prefix
+#   the script will generate ...
+#    - $output_prefix.log    -> OpenMM StateReporter style log file
+#    - $output_prefix.dcd    -> Trajectories in DCD file
+#    - $output_prefix.pdb    -> Final snapshots in PDB file
+#    - $output_prefix.pkl    -> Final set of walkers
+#    - $output_prefix.walker -> Records of walker history
+
+# the other arguments
+#   --psf      PSF file 
+#   --toppar   Force field files
+#   --init     Initial conformation in PDB file
+#   --boxsize  System boxsize
+#   --rsr      Restraint files in my custom format
+#   --dcdout   Number of the atoms to be stored in the output DCD file, 1-$dcdout would be stored
+#   --n_walker Number of walkers
+#   --n_cycle  Number of cycles: (number of restraint update cycles) and (number of clone/merge cycles)
+#   --time     Propagation time and integration time step (in ps)
+#   --d_merge  Merging criteria, currently I am using CA-RMSD in Angstrom
+#   --temp     Simulation temperature
+#             
