@@ -215,9 +215,9 @@ class REVO_Sampler(WE_Sampler):
     def __init__(self, *arg, **kwarg):
         super(REVO_Sampler, self).__init__(*arg, **kwarg)
         #
-        self.d_merge = kwarg.get("d_merge", 1.0)
+        self.d_merge = kwarg.get("d_merge", 2.5)
         self.d_char = kwarg.get("d_char", 1.0)
-        self.d_exp = kwarg.get("d_exp", 2.0)
+        self.d_exp = kwarg.get("d_exp", 4.0)
     def get_distance_matrix(self):
         d_mtx = np.zeros((self.n_walker, self.n_walker), dtype=float)
         pdb_s = [w.to_mdtraj(self.mdtraj_topology) for w in self.walker_s]

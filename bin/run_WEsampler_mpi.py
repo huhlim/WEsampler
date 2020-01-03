@@ -150,6 +150,10 @@ def run(arg):
         else:
             with open(arg.restart, 'rb') as fp:
                 sampler.loadCheckpoint(fp)
+            if len(rsr_s) > 0:
+                for i in range(sampler.n_walker):
+                    k = i%n_init
+                    sampler.walker_s[i].define_restraint([(force_index[j], X[1], X[0]) for j,X in enumerate(rsr_s[k])])
         #
         walker_reporter_fn = '%s.walker'%arg.output_prefix
         log_fn = '%s.log'%arg.output_prefix
